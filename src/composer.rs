@@ -210,6 +210,17 @@ impl EmbedComposer {
     }
 
     pub fn render(&self) -> String {
+        self.render_internal(false)
+    }
+
+    /// Render for Discord public display: excludes Thinking blocks.
+    pub fn render_public(&self) -> String {
+        self.render_internal(true)
+    }
+
+    fn render_internal(&self,
+        skip_thinking: bool,
+    ) -> String {
         if self.blocks.is_empty() {
             return String::new();
         }
@@ -218,6 +229,7 @@ impl EmbedComposer {
         let renderings: Vec<String> = self
             .blocks
             .iter()
+            .filter(|b| !skip_thinking || b.block_type != BlockType::Thinking)
             .map(|b| b.render())
             .filter(|r| !r.is_empty())
             .collect();
