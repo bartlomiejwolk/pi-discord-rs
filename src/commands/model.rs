@@ -62,6 +62,17 @@ impl SlashCommand for ModelCommand {
 
         let i18n = state.i18n.read().await;
 
+        // 讀取當前模型設定
+        let current_model_text = {
+            let entry = channel_config.channels.get(&channel_id_str);
+            match entry.and_then(|e| e.model_provider.as_ref().zip(e.model_id.as_ref())) {
+                Some((provider, model_id)) => {
+                    i18n.get_args("model_current", &[format!("{}/{}", provider, model_id)])
+                }
+                None => i18n.get("model_current_none"),
+            }
+        };
+
         // 獲取可用模型列表
         let models = match agent.get_available_models().await {
             Ok(m) => {
@@ -123,11 +134,16 @@ impl SlashCommand for ModelCommand {
         }
 
         // 發送帶有多個 Select Menu 的響應
+        let response_content = format!(
+            "{}\n{}",
+            current_model_text,
+            i18n.get_args("model_fetched", &[total_models.to_string()])
+        );
         match command
             .edit_response(
                 &ctx.http,
                 EditInteractionResponse::new()
-                    .content(i18n.get_args("model_fetched", &[total_models.to_string()]))
+                    .content(response_content)
                     .components(action_rows),
             )
             .await
