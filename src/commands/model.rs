@@ -134,16 +134,11 @@ impl SlashCommand for ModelCommand {
         }
 
         // 發送帶有多個 Select Menu 的響應
-        let response_content = format!(
-            "{}\n{}",
-            current_model_text,
-            i18n.get_args("model_fetched", &[total_models.to_string()])
-        );
         match command
             .edit_response(
                 &ctx.http,
                 EditInteractionResponse::new()
-                    .content(response_content)
+                    .content(current_model_text)
                     .components(action_rows),
             )
             .await
