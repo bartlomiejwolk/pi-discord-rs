@@ -83,6 +83,8 @@
   "model_no_available": "❌ 目前沒有可用的模型",
   "model_fetch_failed": "❌ 無法獲取模型列表: {0}",
   "model_switched": "✅ 已切換至模型: {0}",
+  "model_current": "🤖 目前模型: {0}",
+  "model_current_none": "🤖 目前模型: (預設 / 未設定)",
   "model_failed": "❌ 切換模型失敗: {0}",
   "model_invalid": "❌ 無效的模型格式",
   "model_placeholder": "選擇模型 (分頁 {0})",

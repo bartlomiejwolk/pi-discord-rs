@@ -83,6 +83,8 @@
   "model_no_available": "❌ No models available",
   "model_fetch_failed": "❌ Failed to fetch models: {0}",
   "model_switched": "✅ Switched to model: {0}",
+  "model_current": "🤖 Current model: {0}",
+  "model_current_none": "🤖 Current model: (default / not set)",
   "model_failed": "❌ Failed to switch model: {0}",
   "model_invalid": "❌ Invalid model format",
   "model_placeholder": "Select model (Page {0})",
