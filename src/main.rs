@@ -257,7 +257,7 @@ impl Handler {
                 let (current_status, desc) = {
                     let c = render_composer.lock().await;
                     let s = render_status.lock().await;
-                    (s.clone(), c.render_public())
+                    (s.clone(), c.render())
                 };
 
                 if desc != last_content || current_status != last_status {

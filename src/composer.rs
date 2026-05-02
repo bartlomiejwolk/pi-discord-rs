@@ -1,5 +1,25 @@
 use std::collections::VecDeque;
 
+/// Strip XML-like tags (e.g. <Decision>, <Thinking>) from text.
+fn strip_xml_tags(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    let mut in_tag = false;
+    for ch in text.chars() {
+        if ch == '<' {
+            in_tag = true;
+            continue;
+        }
+        if ch == '>' && in_tag {
+            in_tag = false;
+            continue;
+        }
+        if !in_tag {
+            result.push(ch);
+        }
+    }
+    result
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum BlockType {
     Thinking,
@@ -49,7 +69,11 @@ impl Block {
                 if self.content.trim().is_empty() {
                     return String::new();
                 }
-                self.content
+                let cleaned = strip_xml_tags(&self.content);
+                if cleaned.trim().is_empty() {
+                    return String::new();
+                }
+                cleaned
                     .lines()
                     .map(|l| format!("> {}", l))
                     .collect::<Vec<_>>()
@@ -210,17 +234,6 @@ impl EmbedComposer {
     }
 
     pub fn render(&self) -> String {
-        self.render_internal(false)
-    }
-
-    /// Render for Discord public display: excludes Thinking blocks.
-    pub fn render_public(&self) -> String {
-        self.render_internal(true)
-    }
-
-    fn render_internal(&self,
-        skip_thinking: bool,
-    ) -> String {
         if self.blocks.is_empty() {
             return String::new();
         }
@@ -229,7 +242,6 @@ impl EmbedComposer {
         let renderings: Vec<String> = self
             .blocks
             .iter()
-            .filter(|b| !skip_thinking || b.block_type != BlockType::Thinking)
             .map(|b| b.render())
             .filter(|r| !r.is_empty())
             .collect();
