@@ -264,19 +264,36 @@ impl Handler {
                     let i18n = render_i18n.read().await;
                     let (title, color, body) =
                         build_render_view(&i18n, &current_status, &desc, &render_assistant_name);
-                    let embed = CreateEmbed::new()
-                        .title(title)
-                        .color(color)
-                        .description(body);
 
-                    if let Err(e) = render_msg
-                        .edit(&render_http, EditMessage::new().embed(embed))
-                        .await
+                    // Use message content for normal font size; embed for status/title only.
+                    // Discord message content limit is 2000 chars.
+                    const DISCORD_CONTENT_LIMIT: usize = 2000;
+                    let (content_text, embed_desc) = if body.len() <= DISCORD_CONTENT_LIMIT {
+                        (body.clone(), None)
+                    } else {
+                        let truncated = format!(
+                            "{}\n\n*(truncated — {} chars total)*",
+                            &body[..DISCORD_CONTENT_LIMIT.saturating_sub(40)],
+                            body.len()
+                        );
+                        (truncated, Some(body))
+                    };
+
+                    let mut embed = CreateEmbed::new().title(title).color(color);
+                    if let Some(d) = embed_desc {
+                        embed = embed.description(d);
+                    }
+
+                    let edit_builder = EditMessage::new()
+                        .content(&content_text)
+                        .embed(embed);
+
+                    if let Err(e) = render_msg.edit(&render_http, edit_builder).await
                     {
                         error!("❌ Render failed to edit message: {}", e);
                     } else {
                         info!(
-                            "📢 [EMBED-UPDATE-{}]: status={:?}, len={}",
+                            "📢 [MSG-UPDATE-{}]: status={:?}, len={}",
                             render_channel_id,
                             current_status,
                             desc.len()
