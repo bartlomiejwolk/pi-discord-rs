@@ -124,6 +124,7 @@ impl SessionManager {
                 model_provider: None,
                 model_id: None,
                 assistant_name: None,
+                auto_thread: false,
             });
 
         entry.session_id = Some(sid);
@@ -199,6 +200,7 @@ mod tests {
                 model_provider: Some("p".to_string()),
                 model_id: Some("m".to_string()),
                 assistant_name: Some("a".to_string()),
+                auto_thread: false,
             },
         );
         SessionManager::apply_sid(&mut cfg, "1002", AgentType::Kilo, "new-sid".to_string());

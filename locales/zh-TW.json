@@ -37,7 +37,7 @@
   "cmd_mention_desc": "設定是否僅在被標記 (@) 時才回應",
   "cmd_mention_opt_enabled": "啟用/禁用",
   "cmd_config_desc": "設定此頻道的非敏感選項",
-  "config_current": "目前設定\n- backend: `{0}`\n- mention_only: `{1}`\n- assistant_name: `{2}`",
+  "config_current": "目前設定\n- backend: `{0}`\n- mention_only: `{1}`\n- assistant_name: `{2}`\n- auto_thread: `{3}`",
   "config_backend_placeholder": "選擇此頻道 backend",
   "config_mention_placeholder": "選擇此頻道 mention_only",
   "config_backend_set": "✅ 已更新此頻道 backend 為 `{0}`",
@@ -119,6 +119,14 @@
   "cron_triggered_footer": "由cron觸發",
   "cron_delete_placeholder": "選擇要刪除的排程...",
   "cron_deleted": "✅ 已刪除排程: {0}",
+  "cmd_auto_thread_desc": "在此頻道自動為每次機器人回應建立新討論串",
+  "cmd_auto_thread_opt_enabled": "啟用/停用",
+  "auto_thread_on": "✅ 自動開串: **啟用**",
+  "auto_thread_off": "✅ 自動開串: **停用**",
+  "auto_thread_not_in_thread": "❌ 自動開串只能在文字/公告頻道設定，不能在討論串內設定。",
+  "config_auto_thread_placeholder": "選擇此頻道是否自動開串",
+  "config_auto_thread_on": "on",
+  "config_auto_thread_off": "off",
   "cmd_cron_desc": "在當前頻道設定定期的 AI 提示詞",
   "cmd_cron_list_desc": "列出此頻道所有的排程任務"
 }

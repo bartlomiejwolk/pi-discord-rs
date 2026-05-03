@@ -23,6 +23,7 @@ pub enum ComponentRoute {
 pub fn resolve_channel_assistant_name(
     channel_cfg: &ChannelConfig,
     channel_id: &str,
+    parent_id: Option<&str>,
     default_name: &str,
 ) -> String {
     channel_cfg
@@ -30,6 +31,15 @@ pub fn resolve_channel_assistant_name(
         .get(channel_id)
         .and_then(|e| e.assistant_name.clone())
         .filter(|s| !s.trim().is_empty())
+        .or_else(|| {
+            parent_id.and_then(|pid| {
+                channel_cfg
+                    .channels
+                    .get(pid)
+                    .and_then(|e| e.assistant_name.clone())
+                    .filter(|s| !s.trim().is_empty())
+            })
+        })
         .unwrap_or_else(|| default_name.to_string())
 }
 
@@ -167,12 +177,13 @@ mod tests {
                 model_provider: None,
                 model_id: None,
                 assistant_name: Some("MyAgent".to_string()),
+                auto_thread: false,
             },
         );
 
-        let got = resolve_channel_assistant_name(&cfg, "1", "Agent");
+        let got = resolve_channel_assistant_name(&cfg, "1", None, "Agent");
         assert_eq!(got, "MyAgent");
-        let fallback = resolve_channel_assistant_name(&cfg, "2", "Agent");
+        let fallback = resolve_channel_assistant_name(&cfg, "2", None, "Agent");
         assert_eq!(fallback, "Agent");
     }
 

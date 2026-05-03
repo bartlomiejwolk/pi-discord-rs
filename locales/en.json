@@ -37,7 +37,7 @@
   "cmd_mention_desc": "Set whether to only respond when mentioned (@)",
   "cmd_mention_opt_enabled": "Enable/Disable",
   "cmd_config_desc": "Configure non-sensitive settings for this channel",
-  "config_current": "Current settings\n- backend: `{0}`\n- mention_only: `{1}`\n- assistant_name: `{2}`",
+  "config_current": "Current settings\n- backend: `{0}`\n- mention_only: `{1}`\n- assistant_name: `{2}`\n- auto_thread: `{3}`",
   "config_backend_placeholder": "Select backend for this channel",
   "config_mention_placeholder": "Select mention_only for this channel",
   "config_backend_set": "✅ Updated this channel backend to `{0}`",
@@ -119,6 +119,14 @@
   "cron_triggered_footer": "Triggered by cron",
   "cron_delete_placeholder": "Select a task to delete",
   "cron_deleted": "✅ Task deleted: {0}",
+  "cmd_auto_thread_desc": "Automatically create a new thread for every bot response in this channel",
+  "cmd_auto_thread_opt_enabled": "Enable/Disable",
+  "auto_thread_on": "✅ Auto-thread: **Enabled**",
+  "auto_thread_off": "✅ Auto-thread: **Disabled**",
+  "auto_thread_not_in_thread": "❌ Auto-thread can only be toggled in a text/news channel, not inside a thread.",
+  "config_auto_thread_placeholder": "Select auto-thread for this channel",
+  "config_auto_thread_on": "on",
+  "config_auto_thread_off": "off",
   "cmd_cron_desc": "Schedule a recurring AI prompt for this channel",
   "cmd_cron_list_desc": "List all scheduled prompts in this channel"
 }

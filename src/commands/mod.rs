@@ -5,6 +5,7 @@ use crate::i18n::I18n;
 
 pub mod abort;
 pub mod agent;
+pub mod auto_thread;
 pub mod compact;
 pub mod config;
 pub mod cron;
@@ -54,6 +55,7 @@ pub fn get_all_commands() -> Vec<Box<dyn SlashCommand>> {
         Box::new(abort::AbortCommand),
         Box::new(skill::SkillCommand),
         Box::new(mention_only::MentionOnlyCommand),
+        Box::new(auto_thread::AutoThreadCommand),
         Box::new(language::LanguageCommand),
         Box::new(cron::CronCommand),
         Box::new(cron::CronListCommand),

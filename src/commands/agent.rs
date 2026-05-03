@@ -100,6 +100,8 @@ pub struct ChannelEntry {
     pub model_provider: Option<String>,
     pub model_id: Option<String>,
     pub assistant_name: Option<String>,
+    #[serde(default)]
+    pub auto_thread: bool,
 }
 
 impl ChannelConfig {
@@ -127,6 +129,21 @@ impl ChannelConfig {
             .unwrap_or_default()
     }
 
+    pub fn get_agent_type_with_parent(&self, channel_id: &str, parent_id: Option<&str>) -> AgentType {
+        self.channels
+            .get(channel_id)
+            .map(|e| e.agent_type.clone())
+            .or_else(|| parent_id.and_then(|pid| self.channels.get(pid).map(|e| e.agent_type.clone())))
+            .unwrap_or_default()
+    }
+
+    pub fn get_auto_thread(&self, channel_id: &str) -> bool {
+        self.channels
+            .get(channel_id)
+            .map(|e| e.auto_thread)
+            .unwrap_or(false)
+    }
+
     pub fn set_agent_type(&mut self, channel_id: &str, agent_type: AgentType) {
         let entry = self
             .channels
@@ -139,8 +156,26 @@ impl ChannelConfig {
                 model_provider: None,
                 model_id: None,
                 assistant_name: None,
+                auto_thread: false,
             });
         entry.agent_type = agent_type;
+    }
+
+    pub fn set_auto_thread(&mut self, channel_id: &str, enable: bool) {
+        let entry = self
+            .channels
+            .entry(channel_id.to_string())
+            .or_insert_with(|| ChannelEntry {
+                agent_type: AgentType::default(),
+                authorized_at: chrono::Utc::now().to_rfc3339(),
+                mention_only: true,
+                session_id: None,
+                model_provider: None,
+                model_id: None,
+                assistant_name: None,
+                auto_thread: false,
+            });
+        entry.auto_thread = enable;
     }
 }
 

@@ -133,6 +133,53 @@ fn should_auto_recover_request_error(agent_type: &str, error_text: &str) -> bool
         || lower.contains("broken pipe")
 }
 
+/// Build a sanitized thread name from user message content.
+/// Discord thread names must be 2–100 characters.
+fn build_thread_name(content: &str, author_name: &str) -> String {
+    // Replace control chars and newlines with spaces
+    let sanitized: String = content
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    let trimmed = sanitized.trim();
+
+    const MAX_THREAD_NAME_LEN: usize = 97; // 97 + "..." = 100
+
+    let name = if trimmed.chars().count() > MAX_THREAD_NAME_LEN {
+        let mut out = String::new();
+        for (i, ch) in trimmed.chars().enumerate() {
+            if i >= MAX_THREAD_NAME_LEN {
+                break;
+            }
+            out.push(ch);
+        }
+        format!("{}...", out)
+    } else if trimmed.chars().count() >= 2 {
+        trimmed.to_string()
+    } else {
+        let fallback = format!("Thread by {}", author_name);
+        if fallback.chars().count() > 100 {
+            let mut out = String::new();
+            for (i, ch) in fallback.chars().enumerate() {
+                if i >= 97 {
+                    break;
+                }
+                out.push(ch);
+            }
+            format!("{}...", out)
+        } else {
+            fallback
+        }
+    };
+
+    // Final safety clamp (should already be ≤100, but ensure 2–100)
+    let mut final_name: String = name.chars().take(100).collect();
+    if final_name.chars().count() < 2 {
+        final_name = "Discussion".to_string();
+    }
+    final_name
+}
+
 pub struct Handler {
     state: AppState,
 }
@@ -152,6 +199,7 @@ impl Handler {
         state: AppState,
         initial_input: Option<UserInput>,
         is_brand_new: bool,
+        parent_channel_id: Option<serenity::model::id::ChannelId>,
     ) {
         let channel_id_u64 = channel_id.get();
         let mut initial_input = initial_input;
@@ -198,9 +246,11 @@ impl Handler {
         let status: Arc<Mutex<ExecStatus>> = Arc::new(Mutex::new(ExecStatus::Running));
         let assistant_name = {
             let channel_cfg = ChannelConfig::load().await.unwrap_or_default();
+            let parent_id_str = parent_channel_id.map(|id| id.to_string());
             resolve_channel_assistant_name(
                 &channel_cfg,
                 &channel_id.to_string(),
+                parent_id_str.as_deref(),
                 &state.config.assistant_name,
             )
         };
@@ -549,11 +599,52 @@ impl EventHandler for Handler {
         }
 
         let channel_config = ChannelConfig::load().await.unwrap_or_default();
-        let agent_type = channel_config.get_agent_type(&channel_id_str);
+
+        let mut target_channel_id = msg.channel_id;
+        let mut parent_channel_id = None;
+        let auto_thread = channel_config.get_auto_thread(&channel_id_str);
+        if auto_thread {
+            if let Ok(channel) = msg.channel_id.to_channel(&ctx.http).await {
+                if let Some(guild_channel) = channel.guild() {
+                    match guild_channel.kind {
+                        serenity::model::channel::ChannelType::Text
+                        | serenity::model::channel::ChannelType::News => {
+                            let thread_name = build_thread_name(&msg.content, &msg.author.name);
+                            let builder = serenity::all::CreateThread::new(&thread_name);
+                            match msg
+                                .channel_id
+                                .create_thread_from_message(&ctx.http, msg.id, builder)
+                                .await
+                            {
+                                Ok(thread) => {
+                                    parent_channel_id = Some(msg.channel_id);
+                                    target_channel_id = thread.id;
+                                    info!(
+                                        "🧵 Created auto-thread {} for message {}",
+                                        thread.id, msg.id
+                                    );
+                                }
+                                Err(e) => {
+                                    warn!("⚠️ Failed to create auto-thread: {}", e);
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        let target_channel_id_str = target_channel_id.to_string();
+        let agent_type = if parent_channel_id.is_some() {
+            channel_config.get_agent_type_with_parent(&target_channel_id_str, Some(&channel_id_str))
+        } else {
+            channel_config.get_agent_type(&target_channel_id_str)
+        };
         let files = self
             .state
             .upload_manager
-            .stage_attachments(msg.channel_id.get(), &msg.attachments)
+            .stage_attachments(target_channel_id.get(), &msg.attachments)
             .await;
         let input = UserInput {
             text: msg.content.clone(),
@@ -561,20 +652,22 @@ impl EventHandler for Handler {
         };
 
         let state = self.state.clone();
+        let http = ctx.http.clone();
         tokio::spawn(async move {
             match state
                 .session_manager
-                .get_or_create_session(msg.channel_id.get(), agent_type, &state.backend_manager)
+                .get_or_create_session(target_channel_id.get(), agent_type, &state.backend_manager)
                 .await
             {
                 Ok((agent, is_new)) => {
                     Handler::start_agent_loop(
                         agent,
-                        ctx.http.clone(),
-                        msg.channel_id,
+                        http,
+                        target_channel_id,
                         state,
                         Some(input),
                         is_new,
+                        parent_channel_id,
                     )
                     .await;
                 }
@@ -582,7 +675,14 @@ impl EventHandler for Handler {
                     error!("❌ Session error: {}", e);
                     let err_text = e.to_string();
                     let channel_config = ChannelConfig::load().await.unwrap_or_default();
-                    let backend = channel_config.get_agent_type(&msg.channel_id.to_string());
+                    let backend = if parent_channel_id.is_some() {
+                        channel_config.get_agent_type_with_parent(
+                            &target_channel_id.to_string(),
+                            Some(&channel_id_str),
+                        )
+                    } else {
+                        channel_config.get_agent_type(&target_channel_id.to_string())
+                    };
                     let user_msg = {
                         let i18n = state.i18n.read().await;
                         crate::commands::agent::build_backend_error_message(
@@ -592,7 +692,7 @@ impl EventHandler for Handler {
                             state.config.opencode.port,
                         )
                     };
-                    let _ = msg.reply(&ctx.http, user_msg).await;
+                    let _ = target_channel_id.say(&http, user_msg).await;
                 }
             }
         });
@@ -760,6 +860,7 @@ async fn run_bot() -> anyhow::Result<()> {
                         (*queue_state).clone(),
                         Some(input),
                         is_new,
+                        None,
                     )
                     .await;
                 }

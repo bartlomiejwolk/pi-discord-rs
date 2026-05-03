@@ -16,6 +16,7 @@ enum ConfigSelectAction {
     Mention(bool),
     AssistantDefault,
     AssistantCustom,
+    AutoThread(bool),
     Ignore,
 }
 
@@ -54,6 +55,7 @@ impl SlashCommand for ConfigCommand {
             .auth
             .get_channel_mention_only(&channel_id_str)
             .unwrap_or(true);
+        let auto_thread = channel_config.get_auto_thread(&channel_id_str);
 
         let i18n = state.i18n.read().await;
         let status = i18n.get_args(
@@ -66,6 +68,11 @@ impl SlashCommand for ConfigCommand {
                     i18n.get("config_mention_off")
                 },
                 assistant_name,
+                if auto_thread {
+                    i18n.get("config_auto_thread_on")
+                } else {
+                    i18n.get("config_auto_thread_off")
+                },
             ],
         );
 
@@ -97,6 +104,19 @@ impl SlashCommand for ConfigCommand {
         .min_values(1)
         .max_values(1);
 
+        let auto_thread_menu = CreateSelectMenu::new(
+            "config_auto_thread_select",
+            CreateSelectMenuKind::String {
+                options: vec![
+                    CreateSelectMenuOption::new(i18n.get("config_auto_thread_on"), "on"),
+                    CreateSelectMenuOption::new(i18n.get("config_auto_thread_off"), "off"),
+                ],
+            },
+        )
+        .placeholder(i18n.get("config_auto_thread_placeholder"))
+        .min_values(1)
+        .max_values(1);
+
         let assistant_menu = CreateSelectMenu::new(
             "config_assistant_select",
             CreateSelectMenuKind::String {
@@ -118,6 +138,7 @@ impl SlashCommand for ConfigCommand {
                     .components(vec![
                         CreateActionRow::SelectMenu(backend_menu),
                         CreateActionRow::SelectMenu(mention_menu),
+                        CreateActionRow::SelectMenu(auto_thread_menu),
                         CreateActionRow::SelectMenu(assistant_menu),
                     ]),
             )
@@ -172,6 +193,7 @@ fn parse_config_select_action(custom_id: &str, value: &str) -> ConfigSelectActio
             .map(ConfigSelectAction::Backend)
             .unwrap_or(ConfigSelectAction::Ignore),
         "config_mention_select" => ConfigSelectAction::Mention(value == "on"),
+        "config_auto_thread_select" => ConfigSelectAction::AutoThread(value == "on"),
         "config_assistant_select" if value == "default" => ConfigSelectAction::AssistantDefault,
         "config_assistant_select" if value == "custom" => ConfigSelectAction::AssistantCustom,
         _ => ConfigSelectAction::Ignore,
@@ -274,6 +296,46 @@ pub async fn handle_config_select(
                     Ok(_) => i18n.get(if enable { "mention_on" } else { "mention_off" }),
                     Err(_) => i18n.get("mention_not_auth"),
                 }
+            };
+
+            interaction
+                .edit_response(&ctx.http, EditInteractionResponse::new().content(msg))
+                .await?;
+        }
+        ConfigSelectAction::AutoThread(enable) => {
+            // Refuse if invoked inside a thread
+            if let Ok(channel) = interaction.channel_id.to_channel(&ctx.http).await {
+                if let Some(guild_ch) = channel.guild() {
+                    if matches!(
+                        guild_ch.kind,
+                        serenity::model::channel::ChannelType::PublicThread
+                            | serenity::model::channel::ChannelType::PrivateThread
+                            | serenity::model::channel::ChannelType::NewsThread
+                    ) {
+                        let i18n = state.i18n.read().await;
+                        let msg = i18n.get("auto_thread_not_in_thread");
+                        interaction
+                            .edit_response(
+                                &ctx.http,
+                                EditInteractionResponse::new().content(msg),
+                            )
+                            .await?;
+                        return Ok(());
+                    }
+                }
+            }
+            let mut channel_config = crate::commands::agent::ChannelConfig::load()
+                .await
+                .unwrap_or_default();
+            channel_config.set_auto_thread(&channel_id_str, enable);
+            channel_config.save().await?;
+            let msg = {
+                let i18n = state.i18n.read().await;
+                i18n.get(if enable {
+                    "auto_thread_on"
+                } else {
+                    "auto_thread_off"
+                })
             };
 
             interaction
@@ -409,6 +471,14 @@ mod tests {
         assert_eq!(
             parse_config_select_action("config_mention_select", "on"),
             ConfigSelectAction::Mention(true)
+        );
+        assert_eq!(
+            parse_config_select_action("config_auto_thread_select", "on"),
+            ConfigSelectAction::AutoThread(true)
+        );
+        assert_eq!(
+            parse_config_select_action("config_auto_thread_select", "off"),
+            ConfigSelectAction::AutoThread(false)
         );
         assert_eq!(
             parse_config_select_action("config_assistant_select", "default"),

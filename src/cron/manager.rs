@@ -183,6 +183,7 @@ impl CronManager {
                                     (*state).clone(),
                                     Some(crate::agent::UserInput::new_text(prompt)),
                                     is_new,
+                                    None,
                                 )
                                 .await;
                             }
